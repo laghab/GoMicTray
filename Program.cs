@@ -74,14 +74,26 @@ namespace GoMicTray
             menu.HandleCreated += delegate { Gfx.RoundCorners(menu.Handle); };
             menu.Opened += delegate { Gfx.RoundCorners(menu.Handle); };
 
-            // single click = mute mic, double click = toggle monitoring
-            clickTimer.Interval = 350;
-            clickTimer.Tick += delegate { clickTimer.Stop(); ToggleMute(); };
+            // Single click = toggle mic mute, applied IMMEDIATELY (no waiting for a possible double-click).
+            // If a second click lands within the window, it's a double-click: put the mute back the way it
+            // was before the first click, and toggle direct monitoring instead.
+            clickTimer.Interval = 400;
+            clickTimer.Tick += delegate { clickTimer.Stop(); };
             ni.MouseUp += delegate (object s, MouseEventArgs e)
             {
                 if (e.Button != MouseButtons.Left) return;
-                if (clickTimer.Enabled) { clickTimer.Stop(); ToggleMonitor(); }
-                else clickTimer.Start();
+                if (clickTimer.Enabled)
+                {
+                    clickTimer.Stop();
+                    RestoreMute();
+                    ToggleMonitor();
+                }
+                else
+                {
+                    mutedBeforeClick = ReadMuted();
+                    ToggleMute();
+                    clickTimer.Start();
+                }
             };
 
             miMon.Click += delegate { ToggleMonitor(); };
@@ -203,6 +215,15 @@ namespace GoMicTray
             try { mic.MonitorOn = !mic.MonitorOn; sMonitor = mic.MonitorOn; SaveSettings(); }
             catch { mic.Disconnect(); }
             RefreshUI();
+        }
+        bool? mutedBeforeClick;
+        bool? ReadMuted()
+        {
+            try { return mic.Connected ? (bool?)mic.MicMuted : null; } catch { return null; }
+        }
+        void RestoreMute()
+        {
+            try { if (mutedBeforeClick.HasValue && mic.Connected) mic.MicMuted = mutedBeforeClick.Value; } catch { mic.Disconnect(); }
         }
         void ToggleMute()
         {
