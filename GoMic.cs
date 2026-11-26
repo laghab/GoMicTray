@@ -2,6 +2,9 @@
 using System.Runtime.InteropServices;
 using System.Collections.Generic;
 
+// Talks to the Samson Go Mic's own USB audio controls through the Windows Core Audio device topology.
+// Deliberately touches ONLY: the monitor-path mute (direct monitoring), the monitor-path volume,
+// and the capture mute. The microphone's capture gain is never read or written.
 namespace GoMicNative {
 [ComImport, Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")] class MMDevEnumComObj {}
 [ComImport, Guid("A95664D2-9614-4F35-A746-DE8DB63617E6"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
@@ -80,9 +83,9 @@ public class GoMic {
   const int CLSCTX_ALL = 23;
   Guid ctx = Guid.Empty;
   IAudioMute monMute, capMute;
-  IAudioVolumeLevel micVol, hpVol;
+  IAudioVolumeLevel hpVol;
   public string VidMatch = "vid_17a0";   // Samson
-  public bool Connected { get { return monMute != null && micVol != null; } }
+  public bool Connected { get { return monMute != null; } }
   public bool HasMonitorVolume { get { return hpVol != null; } }
   public bool HasMicMute { get { return capMute != null; } }
 
@@ -108,8 +111,9 @@ public class GoMic {
     return false;
   }
   static string NameOf(IPart p) { string s; p.GetName(out s); return s ?? ""; }
+  static T Act<T>(IPart p, Guid iid) { object o; p.Activate(CLSCTX_ALL, ref iid, out o); return (T)o; }
 
-  public void Disconnect() { monMute = capMute = null; micVol = hpVol = null; }
+  public void Disconnect() { monMute = capMute = null; hpVol = null; }
 
   public bool Connect() {
     Disconnect();
@@ -126,7 +130,8 @@ public class GoMic {
         if (devId == null || devId.IndexOf(VidMatch, StringComparison.OrdinalIgnoreCase) < 0) continue;
         IConnector adapterCon; con.GetConnectedTo(out adapterCon);
         IPart mic = (IPart)adapterCon;
-        // mic -> ADC -> { capture branch (Mute->Volume->Mux...) , monitor branch (Mute->SuperMix->Sum->Mute->Volume->DAC) }
+        // mic -> ADC -> { capture branch: Mute -> Volume(gain, NOT USED) -> ... ,
+        //                 monitor branch: Mute -> SuperMix -> Sum -> Mute -> Volume -> DAC }
         foreach (var adc in Children(mic)) {
           foreach (var branch in Children(adc)) {
             var ch = Chain(branch);
@@ -142,7 +147,6 @@ public class GoMic {
                 if (Has(ch[k], IID_Vol)) { hpVol = Act<IAudioVolumeLevel>(ch[k], IID_Vol); break; }
             } else {
               if (Has(ch[0], IID_Mute)) capMute = Act<IAudioMute>(ch[0], IID_Mute);
-              foreach (var p in ch) if (Has(p, IID_Vol)) { micVol = Act<IAudioVolumeLevel>(p, IID_Vol); break; }
             }
           }
         }
@@ -152,18 +156,16 @@ public class GoMic {
     } catch { Disconnect(); }
     return false;
   }
-  static T Act<T>(IPart p, Guid iid) { object o; p.Activate(CLSCTX_ALL, ref iid, out o); return (T)o; }
 
-  bool GetMute(IAudioMute m) { bool b; m.GetMute(out b); return b; }
+  static bool GetMute(IAudioMute m) { bool b; m.GetMute(out b); return b; }
   public bool MonitorOn { get { return !GetMute(monMute); } set { monMute.SetMute(!value, ref ctx); } }
   public bool MicMuted  { get { return capMute != null && GetMute(capMute); } set { if (capMute != null) capMute.SetMute(value, ref ctx); } }
 
-  static float Lvl(IAudioVolumeLevel v) { float f; v.GetLevel(0, out f); return f; }
-  static void Range(IAudioVolumeLevel v, out float mn, out float mx, out float st) { v.GetLevelRange(0, out mn, out mx, out st); }
-  public float MicGainDb { get { return Lvl(micVol); } set { micVol.SetLevelUniform(value, ref ctx); } }
-  public void MicRange(out float mn, out float mx, out float st) { Range(micVol, out mn, out mx, out st); }
-  public float MonitorVolDb { get { return Lvl(hpVol); } set { hpVol.SetLevelUniform(value, ref ctx); } }
-  public void MonitorRange(out float mn, out float mx, out float st) { Range(hpVol, out mn, out mx, out st); }
+  public float MonitorVolDb {
+    get { float f; hpVol.GetLevel(0, out f); return f; }
+    set { hpVol.SetLevelUniform(value, ref ctx); }
+  }
+  public void MonitorRange(out float mn, out float mx, out float st) { hpVol.GetLevelRange(0, out mn, out mx, out st); }
 
   [DllImport("user32.dll")] public static extern bool DestroyIcon(IntPtr h);
 }
