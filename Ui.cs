@@ -75,7 +75,7 @@ namespace GoMicTray
         public Theme T = Theme.Current();
         public event EventHandler ValueChanged;
         public event EventHandler DragCompleted;
-        const int PadX = 16;
+        const int PadX = 8;   // host sits 8px in from the menu edge, so the track starts at the 16px content margin
 
         public SoftSlider()
         {
@@ -178,24 +178,25 @@ namespace GoMicTray
                 Color c = (state == "On" || state == "Live") ? T.Accent : (state == "Muted" ? T.Danger : T.Sub);
                 if (!e.Item.Enabled) c = T.Sub;
                 g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
-                TextRenderer.DrawText(g, state, e.Item.Font, new Rectangle(0, -3, e.Item.Width - 16, e.Item.Height), c,
+                TextRenderer.DrawText(g, state, e.Item.Font, new Rectangle(0, 0, e.Item.Width - 16, e.Item.Height), c,
                     TextFormatFlags.Right | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
             }
         }
         protected override void OnRenderSeparator(ToolStripSeparatorRenderEventArgs e)
         {
             int y = e.Item.Height / 2;
-            using (var pen = new Pen(T.Border)) e.Graphics.DrawLine(pen, 14, y, e.Item.Width - 14, y);
+            using (var pen = new Pen(T.Border)) e.Graphics.DrawLine(pen, 16 - e.Item.Bounds.X, y, e.Item.Width - 16 + e.Item.Bounds.X, y);
         }
         protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e)
         {
+            // Draw the text ourselves so it is exactly vertically centred and left-aligned to the item's padding.
+            var it = e.Item;
             e.Graphics.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
-            var mi = e.Item as ToolStripMenuItem;
-            if (mi != null)
-            {
-                e.TextColor = mi.Enabled ? T.Text : T.Sub;
-            }
-            base.OnRenderItemText(e);
+            Color c = (it is ToolStripMenuItem) ? (it.Enabled ? T.Text : T.Sub) : e.TextColor;
+            var r = new Rectangle(it.Padding.Left, 0, Math.Max(1, it.Width - it.Padding.Horizontal), it.Height);
+            TextRenderer.DrawText(e.Graphics, e.Text, it.Font, r, c,
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis |
+                TextFormatFlags.NoPadding | TextFormatFlags.SingleLine);
         }
     }
 }

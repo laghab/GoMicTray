@@ -64,12 +64,13 @@ namespace GoMicTray
             {
                 mi.AutoSize = false; mi.Size = new Size(MenuWidth, 32);
                 mi.Font = fontMain; mi.TextAlign = ContentAlignment.MiddleLeft;
-                mi.Margin = Padding.Empty; mi.Padding = new Padding(14, 0, 14, 0);
+                mi.Margin = Padding.Empty; mi.Padding = new Padding(16, 0, 16, 0);
             }
-            lblVol.AutoSize = false; lblVol.Size = new Size(Inner, 26); lblVol.Font = fontLabel;
-            lblVol.Margin = Padding.Empty; lblVol.Padding = new Padding(6, 0, 0, 2); lblVol.TextAlign = ContentAlignment.BottomLeft;
-            lblHint.AutoSize = false; lblHint.Size = new Size(Inner, 24); lblHint.Font = fontSmall;
-            lblHint.Margin = Padding.Empty; lblHint.Padding = new Padding(6, 0, 0, 0); lblHint.TextAlign = ContentAlignment.MiddleLeft;
+            // labels sit 8px in from the edge, so 8px of padding puts their text on the same 16px margin
+            lblVol.AutoSize = false; lblVol.Size = new Size(Inner, 28); lblVol.Font = fontLabel;
+            lblVol.Margin = Padding.Empty; lblVol.Padding = new Padding(8, 0, 0, 0);
+            lblHint.AutoSize = false; lblHint.Size = new Size(Inner, 26); lblHint.Font = fontSmall;
+            lblHint.Margin = Padding.Empty; lblHint.Padding = new Padding(8, 0, 0, 0);
             foreach (var sp in new[] { sep1, sep2, sep3 }) { sp.AutoSize = false; sp.Size = new Size(MenuWidth, 7); sp.Margin = Padding.Empty; }
 
             menu.Renderer = renderer;
