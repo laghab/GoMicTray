@@ -12,7 +12,8 @@ namespace GoMicTray
     public class TrayApp : ApplicationContext
     {
         const string AppName = "GoMic Tray";
-        const float RefDb = -30f;               // the "default" monitor volume; slider shows +/- relative to this
+        const int MenuWidth = 264;
+        const float RefDb = -30f;              // the "default" monitor volume; slider shows +/- relative to this
         static readonly string Minus = ((char)0x2212).ToString(), Dot = ((char)0x00B7).ToString();
 
         readonly string settingsDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GoMicTray");
@@ -50,25 +51,32 @@ namespace GoMicTray
         {
             LoadSettings();
 
+            // Fixed-width menu: every item is exactly MenuWidth wide (edge to edge, no gap on the right);
+            // the renderer insets the hover highlight so it still looks like a rounded pill.
+            // (non-menu-item entries are laid out with an 8px inset by the dropdown, so they are 16px narrower)
+            const int Inner = MenuWidth - 16;
+            slider.Size = new Size(Inner, 30);
             sliderHost = new ToolStripControlHost(slider);
-            sliderHost.AutoSize = false; sliderHost.Size = new Size(252, 30);
-            sliderHost.Margin = new Padding(0, 0, 0, 2); sliderHost.Padding = Padding.Empty;
+            sliderHost.AutoSize = false; sliderHost.Size = new Size(Inner, 30);
+            sliderHost.Margin = Padding.Empty; sliderHost.Padding = Padding.Empty;
 
             foreach (var mi in new[] { miMon, miMute, miReset, miAuto, miExit })
             {
-                mi.AutoSize = false; mi.Size = new Size(252, 32);
+                mi.AutoSize = false; mi.Size = new Size(MenuWidth, 32);
                 mi.Font = fontMain; mi.TextAlign = ContentAlignment.MiddleLeft;
-                mi.Padding = new Padding(10, 0, 10, 0);
+                mi.Margin = Padding.Empty; mi.Padding = new Padding(14, 0, 14, 0);
             }
-            lblVol.AutoSize = false; lblVol.Size = new Size(252, 26); lblVol.Font = fontLabel;
-            lblVol.TextAlign = ContentAlignment.BottomLeft; lblVol.Padding = new Padding(10, 0, 0, 2);
-            lblHint.AutoSize = false; lblHint.Size = new Size(252, 24); lblHint.Font = fontSmall;
-            lblHint.TextAlign = ContentAlignment.MiddleLeft; lblHint.Padding = new Padding(10, 0, 0, 0);
+            lblVol.AutoSize = false; lblVol.Size = new Size(Inner, 26); lblVol.Font = fontLabel;
+            lblVol.Margin = Padding.Empty; lblVol.Padding = new Padding(6, 0, 0, 2); lblVol.TextAlign = ContentAlignment.BottomLeft;
+            lblHint.AutoSize = false; lblHint.Size = new Size(Inner, 24); lblHint.Font = fontSmall;
+            lblHint.Margin = Padding.Empty; lblHint.Padding = new Padding(6, 0, 0, 0); lblHint.TextAlign = ContentAlignment.MiddleLeft;
+            foreach (var sp in new[] { sep1, sep2, sep3 }) { sp.AutoSize = false; sp.Size = new Size(MenuWidth, 7); sp.Margin = Padding.Empty; }
 
             menu.Renderer = renderer;
             menu.ShowImageMargin = false; menu.ShowCheckMargin = false;
-            menu.Padding = new Padding(4, 6, 4, 6);
-            menu.AutoSize = true;
+            menu.Padding = new Padding(0, 6, 0, 6);
+            menu.AutoSize = false;
+            menu.Width = MenuWidth;
             menu.Items.AddRange(new ToolStripItem[] { miMon, miMute, sep1, lblVol, sliderHost, miReset, sep2, lblHint, sep3, miAuto, miExit });
             ni.ContextMenuStrip = menu;
             menu.HandleCreated += delegate { Gfx.RoundCorners(menu.Handle); };
@@ -101,7 +109,13 @@ namespace GoMicTray
             miReset.Click += delegate { SetVolume(RefDb); SaveSettings(); RefreshUI(); };
             slider.ValueChanged += delegate { SetVolume(slider.Value * volStep + volMin); };
             slider.DragCompleted += delegate { SaveSettings(); RefreshUI(); };
-            menu.Opening += delegate (object s, System.ComponentModel.CancelEventArgs e) { ApplyTheme(); TryConnect(); RefreshUI(); };
+            menu.Opening += delegate (object s, System.ComponentModel.CancelEventArgs e)
+            {
+                ApplyTheme(); TryConnect(); RefreshUI();
+                int h = menu.Padding.Vertical;
+                foreach (ToolStripItem it in menu.Items) h += it.Height + it.Margin.Vertical;
+                menu.Size = new Size(MenuWidth, h);
+            };
             miAuto.Click += delegate { SetAutostart(!AutostartEnabled()); RefreshUI(); };
             miExit.Click += delegate { Shutdown(); };
 

@@ -168,7 +168,7 @@ namespace GoMicTray
             if (e.Item.Selected && e.Item.Enabled)
             {
                 g.SmoothingMode = SmoothingMode.AntiAlias;
-                var r = new Rectangle(2, 1, e.Item.Width - 4, e.Item.Height - 2);
+                var r = new Rectangle(6, 1, e.Item.Width - 12, e.Item.Height - 2);
                 using (var p = Gfx.Round(r, 6)) using (var b = new SolidBrush(T.Hover)) g.FillPath(b, p);
             }
             // optional right-aligned state text ("On", "Off", "Live", "Muted") stored in Tag
@@ -178,14 +178,14 @@ namespace GoMicTray
                 Color c = (state == "On" || state == "Live") ? T.Accent : (state == "Muted" ? T.Danger : T.Sub);
                 if (!e.Item.Enabled) c = T.Sub;
                 g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
-                TextRenderer.DrawText(g, state, e.Item.Font, new Rectangle(0, -3, e.Item.Width - 12, e.Item.Height), c,
+                TextRenderer.DrawText(g, state, e.Item.Font, new Rectangle(0, -3, e.Item.Width - 16, e.Item.Height), c,
                     TextFormatFlags.Right | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
             }
         }
         protected override void OnRenderSeparator(ToolStripSeparatorRenderEventArgs e)
         {
             int y = e.Item.Height / 2;
-            using (var pen = new Pen(T.Border)) e.Graphics.DrawLine(pen, 10, y, e.Item.Width - 10, y);
+            using (var pen = new Pen(T.Border)) e.Graphics.DrawLine(pen, 14, y, e.Item.Width - 14, y);
         }
         protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e)
         {
