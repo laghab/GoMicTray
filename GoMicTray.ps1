@@ -19,6 +19,9 @@ Add-Type -TypeDefinition (($usings -join "`n") + "`n" + ($bodies -join "`n")) `
 $ps = (Get-Command powershell.exe).Source
 [GoMicTray.Program]::AutostartCommand = "`"$ps`" -NoProfile -STA -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$($MyInvocation.MyCommand.Path)`""
 
+[GoMicTray.Program]::LaunchTarget = $ps
+[GoMicTray.Program]::LaunchArgs   = "-NoProfile -STA -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$($MyInvocation.MyCommand.Path)`""
+
 # migrate from the old Startup-folder shortcut used by earlier versions
 $oldLnk = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Startup\GoMic Tray.lnk'
 if (Test-Path $oldLnk) { Remove-Item $oldLnk -Force; [GoMicTray.TrayApp]::SetAutostart($true) }

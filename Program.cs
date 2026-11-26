@@ -132,6 +132,7 @@ namespace GoMicTray
             };
 
             ApplyTheme();
+            EnsureStartMenuShortcut();
             ni.Visible = true;
             if (mic.Connect()) OnConnected();
             RefreshUI();
@@ -185,6 +186,66 @@ namespace GoMicTray
                 File.WriteAllLines(settingsFile, l.ToArray());
             }
             catch { }
+        }
+
+        // ---------- Start menu shortcut ("Samson Go Mic") so the app can be found/launched from Start
+        static void EnsureStartMenuShortcut()
+        {
+            try
+            {
+                string dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GoMicTray");
+                Directory.CreateDirectory(dir);
+                string ico = Path.Combine(dir, "GoMic.ico");
+                using (var icon = MakeAppIcon()) using (var fs = new FileStream(ico, FileMode.Create)) icon.Save(fs);
+
+                string lnk = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), "Samson Go Mic.lnk");
+                Type t = Type.GetTypeFromProgID("WScript.Shell");
+                object sh = Activator.CreateInstance(t);
+                object sc = t.InvokeMember("CreateShortcut", System.Reflection.BindingFlags.InvokeMethod, null, sh, new object[] { lnk });
+                Type st = sc.GetType();
+                Action<string, object> set = delegate (string n, object v)
+                { st.InvokeMember(n, System.Reflection.BindingFlags.SetProperty, null, sc, new object[] { v }); };
+                set("TargetPath", Program.LaunchTarget);
+                set("Arguments", Program.LaunchArgs);
+                set("WorkingDirectory", Path.GetDirectoryName(Program.LaunchTarget) ?? "");
+                set("IconLocation", ico);
+                set("Description", "Samson Go Mic - direct monitoring, mute and monitor volume");
+                set("WindowStyle", 7);
+                st.InvokeMember("Save", System.Reflection.BindingFlags.InvokeMethod, null, sc, null);
+            }
+            catch { }
+        }
+
+        static Icon MakeAppIcon()
+        {
+            using (var bmp = new Bitmap(64, 64))
+            using (var g = Graphics.FromImage(bmp))
+            {
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                g.Clear(Color.Transparent);
+                using (var bg = Gfx.Round(new Rectangle(1, 1, 62, 62), 14))
+                using (var bb = new LinearGradientBrush(new Rectangle(0, 0, 64, 64), Color.FromArgb(70, 130, 220), Color.FromArgb(40, 70, 150), 90f))
+                    g.FillPath(bb, bg);
+                g.ScaleTransform(1.5f, 1.5f);
+                g.TranslateTransform(2f, 1f);
+                using (var pen = new Pen(Color.White, 2.5f))
+                using (var brush = new SolidBrush(Color.White))
+                using (var path = new GraphicsPath())
+                {
+                    path.AddArc(10, 2, 10, 10, 180, 180); path.AddLine(20, 7, 20, 14);
+                    path.AddArc(10, 10, 10, 10, 0, 180); path.AddLine(10, 15, 10, 7);
+                    g.FillPath(brush, path);
+                    g.DrawArc(pen, 6, 7, 18, 14, 0, 180);
+                    g.DrawLine(pen, 15, 21, 15, 26);
+                    g.DrawLine(pen, 10, 27, 20, 27);
+                }
+                IntPtr h = bmp.GetHicon();
+                Icon ic = Icon.FromHandle(h);
+                Icon clone = (Icon)ic.Clone();
+                GoMic.DestroyIcon(h);
+                ic.Dispose();
+                return clone;
+            }
         }
 
         // ---------- autostart (HKCU Run key)
@@ -341,6 +402,9 @@ namespace GoMicTray
         public const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
         // The launcher script overrides this when running from PowerShell instead of the compiled exe.
         public static string AutostartCommand = "\"" + Application.ExecutablePath + "\"";
+        // What the Start menu shortcut launches (launcher script overrides these too).
+        public static string LaunchTarget = Application.ExecutablePath;
+        public static string LaunchArgs = "";
 
         [STAThread]
         public static void Main() { Run(); }
